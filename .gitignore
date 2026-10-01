@@ -1,0 +1,6 @@
+# Material del curso (descargado de uVirtual; no se versiona)
+material_curso/
+# Secretos del despliegue
+deployment/.env
+# Guía personal de presentación
+docs/
