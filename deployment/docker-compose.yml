@@ -1,0 +1,140 @@
+# AutoFix - despliegue en producción (servidor cloud) con Docker Compose.
+# Todas las imágenes se descargan desde Docker Hub. Uso:
+#   cp .env.example .env   (editar DOCKERHUB_USER y PUBLIC_HOST = IP pública del servidor)
+#   docker compose up -d
+#
+# Arquitectura:
+#   navegador -> nginx-frontend (:80) -> frontend1..3        (SPA React)
+#                                     -> /api/  -> nginx-backend (:8090) -> backend1..3 -> postgres
+#                                     -> /auth/ -> keycloak (IAM)                         -> postgres
+
+services:
+  # ---------------- Base de datos ----------------
+  postgres:
+    image: postgres:16
+    container_name: autofix-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres                       # superusuario: solo administración
+      POSTGRES_PASSWORD: ${DB_ROOT_PASSWORD}
+      APP_DB_PASSWORD: ${DB_PASSWORD}               # usuario "autofix" (backend)
+      KEYCLOAK_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD} # usuario "keycloak"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres/init-users.sh:/docker-entrypoint-initdb.d/init-users.sh:ro   # crea usuarios y BDs
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U autofix -d autofix"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks:
+      - backend-network
+
+  # ---------------- IAM ----------------
+  keycloak:
+    image: keycloak/keycloak:26.0
+    container_name: autofix-keycloak
+    restart: unless-stopped
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
+      KC_HTTP_RELATIVE_PATH: /auth
+      KC_HOSTNAME: http://${PUBLIC_HOST}/auth     # URL pública => claim "iss" de los tokens
+      KC_PROXY_HEADERS: xforwarded
+      KC_HTTP_ENABLED: "true"
+      JAVA_OPTS_KC_HEAP: "-Xms128m -Xmx512m"
+    volumes:
+      - ./keycloak:/opt/keycloak/data/import:ro    # realm autofix-realm con roles, usuarios y cliente
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - backend-network
+
+  # ---------------- Backend: 3 réplicas ----------------
+  backend1: &backend
+    image: ${DOCKERHUB_USER}/autofix-backend:latest
+    restart: unless-stopped
+    environment: &backend-env
+      DB_HOST: postgres
+      DB_USERNAME: autofix
+      DB_PASSWORD: ${DB_PASSWORD}
+      KEYCLOAK_JWKS_URI: http://keycloak:8080/auth/realms/autofix-realm/protocol/openid-connect/certs
+      KEYCLOAK_ISSUER: http://${PUBLIC_HOST}/auth/realms/autofix-realm
+      JAVA_OPTS: "-Xms128m -Xmx384m"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - backend-network
+
+  backend2:
+    <<: *backend
+    depends_on:
+      backend1:
+        condition: service_started
+
+  backend3:
+    <<: *backend
+    depends_on:
+      backend1:
+        condition: service_started
+
+  # ---------------- Frontend: 3 réplicas ----------------
+  frontend1: &frontend
+    image: ${DOCKERHUB_USER}/autofix-frontend:latest
+    restart: unless-stopped
+    networks:
+      - frontend-network
+
+  frontend2:
+    <<: *frontend
+
+  frontend3:
+    <<: *frontend
+
+  # ---------------- Balanceadores de carga ----------------
+  nginx-backend:
+    image: nginx:stable-alpine
+    container_name: autofix-nginx-backend
+    restart: unless-stopped
+    ports:
+      - "8090:8090"            # opcional: permite probar la API directo (Postman / Swagger)
+    volumes:
+      - ./nginx-backend.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - backend1
+      - backend2
+      - backend3
+    networks:
+      - backend-network
+
+  nginx-frontend:
+    image: nginx:stable-alpine
+    container_name: autofix-nginx-frontend
+    restart: unless-stopped
+    ports:
+      - "${PUBLIC_PORT:-80}:80"   # único puerto que necesita el usuario final
+    volumes:
+      - ./nginx-frontend.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - frontend1
+      - frontend2
+      - frontend3
+      - nginx-backend
+      - keycloak
+    networks:
+      - frontend-network
+      - backend-network
+
+networks:
+  frontend-network:
+  backend-network:
+
+volumes:
+  postgres-data:
