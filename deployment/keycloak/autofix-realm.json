@@ -2,6 +2,7 @@
   "realm": "autofix-realm",
   "enabled": true,
   "displayName": "AutoFix",
+  "sslRequired": "none",
   "registrationAllowed": false,
   "loginWithEmailAllowed": true,
   "accessTokenLifespan": 900,
