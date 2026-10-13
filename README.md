@@ -14,6 +14,12 @@ vehículos y reparaciones, calcular el costo total de cada reparación y generar
 | Despliegue | Docker Compose: 3 réplicas del backend, 3 del frontend y Nginx como balanceador (`deployment/`) |
 | CI/CD | GitHub Actions: tests, imágenes Docker y publicación en Docker Hub (`.github/workflows/`) |
 
+## Despliegue actual
+
+- App: http://138.197.52.16:8088 (DigitalOcean)
+- API / Swagger: http://138.197.52.16:8090/swagger-ui/index.html
+- Imágenes: [`fernandorios1/autofix-backend`](https://hub.docker.com/r/fernandorios1/autofix-backend) · [`fernandorios1/autofix-frontend`](https://hub.docker.com/r/fernandorios1/autofix-frontend)
+
 ## Historias de usuario
 
 | HU | Funcionalidad | Backend | Frontend | Rol |
