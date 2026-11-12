@@ -21,6 +21,11 @@ spec:
     metadata:
       labels: { app: config-service }
     spec:
+      initContainers:
+        # Espera a que el DNS resuelva GitHub: el Config Server clona config-data al iniciar
+        - name: wait-for-dns
+          image: busybox:1.36
+          command: ["sh", "-c", "until nslookup github.com; do sleep 2; done"]
       containers:
         - name: config-service
           image: __DOCKERHUB_USER__/autofix-config-service:eval2

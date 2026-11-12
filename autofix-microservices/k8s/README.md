@@ -19,12 +19,12 @@ docker login
 Las imágenes se etiquetan como `autofix-<servicio>:eval2`. El script construye imágenes independientes
 desde cada proyecto Spring Boot y desde el frontend.
 
-## Despliegue en Kubernetes (minikube en VirtualBox)
+## Despliegue en Kubernetes (minikube en una VM)
 
-El enunciado exige minikube dentro de una máquina virtual. Con VirtualBox instalado:
+El enunciado exige minikube dentro de una máquina virtual. En este equipo se usa KVM (driver kvm2, compatible con Secure Boot):
 
 ```bash
-minikube start --driver=virtualbox --cpus=4 --memory=6144
+minikube start --driver=kvm2 --cpus=4 --memory=6g      # VM KVM (o --driver=virtualbox)
 minikube ip                      # IP de la VM: con ella se abre la app en el navegador
 DOCKERHUB_USER=tu_usuario ./autofix-microservices/k8s/deploy.sh
 kubectl get pods,services -n autofix
