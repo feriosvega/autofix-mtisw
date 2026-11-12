@@ -1,6 +1,14 @@
-# La imagen sirve el build de producción (carpeta dist) con Nginx, igual que en clases.
+FROM node:20-alpine AS build
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+
 FROM nginx:stable-alpine
 COPY nginx.conf /etc/nginx/conf.d/default.conf
-COPY dist /usr/share/nginx/html
+COPY --from=build /app/dist /usr/share/nginx/html
+COPY docker-entrypoint-config.sh /docker-entrypoint.d/40-autofix-config.sh
+RUN chmod +x /docker-entrypoint.d/40-autofix-config.sh
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]

@@ -1,90 +1,56 @@
-# AutoFix: Sistema de Gestión de Reparaciones
+# AutoFix — Evaluación 2 (Mingeso, USACH)
 
-Evaluación 1, Métodos y Técnicas de Ingeniería de Software (USACH).
-
-Aplicación web monolítica organizada por capas para la cadena de talleres **AutoFix**. Permite registrar
-vehículos y reparaciones, calcular el costo total de cada reparación y generar los reportes R1 a R4.
-
-| Componente | Tecnología |
-|---|---|
-| Frontend | React 18 + Vite + Material UI (`autofix-frontend/`) |
-| Backend | Spring Boot 3.3 / Java 17: Spring Web, Spring Data JPA, PostgreSQL Driver, Lombok (`autofix-backend/`) |
-| Base de datos | PostgreSQL 16 |
-| IAM | Keycloak 26 (realm `autofix-realm`, roles `ADMIN` y `USER`) |
-| Despliegue | Docker Compose: 3 réplicas del backend, 3 del frontend y Nginx como balanceador (`deployment/`) |
-| CI/CD | GitHub Actions: tests, imágenes Docker y publicación en Docker Hub (`.github/workflows/`) |
-
-## Despliegue actual
-
-- App: http://138.197.52.16:8088 (DigitalOcean)
-- API / Swagger: http://138.197.52.16:8090/swagger-ui/index.html
-- Imágenes: [`fernandorios1/autofix-backend`](https://hub.docker.com/r/fernandorios1/autofix-backend) · [`fernandorios1/autofix-frontend`](https://hub.docker.com/r/fernandorios1/autofix-frontend)
+Esta rama implementa la Evaluación 2 del curso Métodos y Técnicas de Ingeniería de Software. El proyecto original
+de Evaluación 1 permanece en `autofix-backend/`; el código monolítico y la configuración de despliegue de esa
+evaluación no se usan en el stack de microservicios. La rama `main` se mantiene intacta.
 
 ## Historias de usuario
 
-| HU | Funcionalidad | Backend | Frontend | Rol |
-|---|---|---|---|---|
-| HU1 | Registro de vehículos | `VehicleController` → `VehicleService` | `VehicleList`, `AddEditVehicle` | USER, ADMIN |
-| HU2 | Registro de reparaciones (historial) | `RepairController` → `RepairService.saveRepair/updateRepair` | `RepairList`, `AddEditRepair` | USER, ADMIN |
-| HU3 | Cálculo del costo total | `RepairService.calculateCost` + `RepairCostService` | `RepairDetail`, botón *Calcular* | USER, ADMIN |
-| HU4 | Reporte R1 | `ReportService.getReportR1` | `ReportR1` | USER, ADMIN |
-| HU5 | Reporte R2 | `ReportService.getReportR2` | `MatrixReport report="r2"` | ADMIN |
-| HU6 | Reporte R3 | `ReportService.getReportR3` | `ReportR3` | ADMIN |
-| HU7 | Reporte R4 | `ReportService.getReportR4` | `MatrixReport report="r4"` | ADMIN |
-
-Costo Total = [Suma(Reparaciones) + Recargos − Descuentos] + IVA (19 %). Los porcentajes se aplican sobre la
-suma de las reparaciones y el bono se descuenta como monto fijo.
-
-## Usuarios (Keycloak)
-
-| Usuario | Contraseña | Rol |
+| HU | Funcionalidad | Componente |
 |---|---|---|
-| `admin` | `admin123` | ADMIN (HU1 a HU7) |
-| `usuario` | `usuario123` | USER (HU1 a HU4) |
+| HU1 | Registro de vehículos | M1 `vehicle-service` |
+| HU2 | Catálogo de reparaciones y precios por motor | M2 `repair-list-service` |
+| HU3 | Registro de reparaciones realizadas y cálculo del total al retiro | M3 `repair-service` |
+| HU4 | Historial completo por vehículo | M3 `repair-service` |
+| HU5 | Cantidad y monto por reparación y tipo de vehículo en un mes/año | M4 `report-service` |
+| HU6 | Comparativo de cantidad y monto para el mes seleccionado y los dos anteriores | M4 `report-service` |
 
-Consola de administración de Keycloak: `http://<host>/auth/admin` (usuario `admin`, contraseña `KEYCLOAK_ADMIN_PASSWORD` del `.env`).
+## Arquitectura
 
-## Desarrollo local
+- Config Server centraliza `autofix-microservices/config-data`.
+- Eureka registra instancias con puertos asignados dinámicamente.
+- API Gateway es el único ingreso del frontend al backend.
+- M1, M2 y M3 tienen bases PostgreSQL independientes; M4 es stateless.
+- M1, M3 y M4 llaman otros microservicios con RestTemplate balanceado por Eureka.
+- Cada API de microservicio se mantiene en capas de controladores, servicios, repositorios y entidades.
 
-```bash
-# Backend (requiere PostgreSQL y Keycloak)
-cd autofix-backend
-./mvnw clean test             # pruebas + reporte JaCoCo en target/site/jacoco/index.html
-./mvnw spring-boot:run        # http://localhost:8090/swagger-ui/index.html
+## Desarrollo con Docker Compose
 
-# Frontend
-cd autofix-frontend
-npm install
-npm run dev                   # http://localhost:5173 (proxy /api -> :8090, /auth -> :9090)
-```
-
-## Pipeline (GitHub Actions)
-
-Al hacer push a `main`, cada workflow ejecuta checkout, pruebas unitarias con verificación de cobertura (solo
-el backend), build, `docker build` y `docker push` a Docker Hub.
-
-Configura estos secrets en GitHub (Settings → Secrets and variables → Actions):
-
-- `DOCKERHUB_USERNAME`
-- `DOCKERHUB_TOKEN`: es un *access token* que se crea en Docker Hub → Account settings → Personal access tokens.
-
-## Despliegue manual en la nube
-
-En una VM (AWS EC2, Azure, GCP o DigitalOcean) con Docker instalado y el puerto 80 abierto:
+Requiere Docker y Docker Compose. Desde la raíz del proyecto:
 
 ```bash
-git clone <repo> && cd <repo>/deployment
-cp .env.example .env           # DOCKERHUB_USER, PUBLIC_HOST=<IP pública>, contraseñas
-docker compose pull
-docker compose up -d
-python3 scripts/seed_data.py http://<IP pública>   # opcional: datos de ejemplo
+cd autofix-microservices
+cp .env.example .env
+# Asigna un valor fuerte a DB_PASSWORD en .env
+docker-compose up --build
 ```
 
-Después abre `http://<IP pública>` desde cualquier navegador.
+Frontend: `http://localhost:8088`. Config Server: `http://localhost:8081`. Eureka: `http://localhost:8761`.
+No se publica el Gateway al host en Compose: el Nginx del frontend envía `/api` al Gateway interno.
 
-Para comprobar el balanceo de carga, el pie de página muestra qué réplica del backend respondió. También se
-puede consultar directamente:
+## Imágenes y Kubernetes
 
-```bash
-for i in 1 2 3 4 5 6; do curl -s http://<IP>/api/v1/public/instance; echo; done
-```
+Las imágenes independientes se publican en Docker Hub y se despliegan en el clúster descrito en
+[autofix-microservices/k8s/README.md](autofix-microservices/k8s/README.md). El Gateway es el único componente
+del backend expuesto por NodePort. El frontend usa otro NodePort para que el navegador pueda abrir la aplicación.
+No se usa port-forward.
+
+## Endpoints
+
+- M1: `/api/v1/vehicles/`
+- M2: `/api/v1/repair-types/`
+- M3: `/api/v1/repairs/`, `/api/v1/repairs/history`, `/api/v1/repairs/report-data`
+- M4: `/api/v1/reports/r1?month=4&year=2026`, `/api/v1/reports/r2?month=4&year=2026`
+
+Todas las rutas del frontend empiezan por `/api` y llegan al backend a través del Gateway.
+

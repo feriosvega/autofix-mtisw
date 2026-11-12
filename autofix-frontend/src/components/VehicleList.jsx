@@ -74,10 +74,10 @@ const VehicleList = ({ roles }) => {
                         onClick={() => navigate(`/repairs/add?vehicleId=${v.id}`)}>Ingresar</Button>
                 <Button size="small" variant="contained" color="info" startIcon={<EditIcon />} sx={{ ml: 1 }}
                         onClick={() => navigate(`/vehicles/edit/${v.id}`)}>Editar</Button>
-                {isAdmin && (
+                <>
                   <Button size="small" variant="contained" color="error" startIcon={<DeleteIcon />} sx={{ ml: 1 }}
                           onClick={() => handleDelete(v.id)}>Eliminar</Button>
-                )}
+                </>}
               </TableCell>
             </TableRow>
           ))}

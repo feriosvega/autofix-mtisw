@@ -57,7 +57,7 @@ const RepairDetail = () => {
             <TableBody>
               {repair.details.map((d) => (
                 <TableRow key={d.id}>
-                  <TableCell>{d.repairType}. {REPAIR_NAMES[d.repairType]}</TableCell>
+                  <TableCell>{d.repairType}. {d.repairName || REPAIR_NAMES[d.repairType]}</TableCell>
                   <TableCell align="right">{money(d.price)}</TableCell>
                 </TableRow>
               ))}
@@ -68,6 +68,7 @@ const RepairDetail = () => {
       <Grid item xs={12} md={7}>
         <Paper sx={{ p: 2 }}>
           <Typography variant="h6">Cálculo del costo total (HU3)</Typography>
+          {!repair.pickupDate && <Alert severity="info" sx={{ my: 1 }}>El costo total se calculará cuando se registre el retiro del vehículo por su dueño.</Alert>}
           <Table size="small">
             <TableBody>
               {row("Suma de reparaciones", money(repair.repairsAmount), true)}

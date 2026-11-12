@@ -1,0 +1,305 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: vehicle-service
+  namespace: autofix
+spec:
+  type: ClusterIP
+  selector: { app: vehicle-service }
+  ports:
+    - { name: http, port: 8080, targetPort: 8080 }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vehicle-service
+  namespace: autofix
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: vehicle-service }
+  template:
+    metadata:
+      labels: { app: vehicle-service }
+    spec:
+      initContainers:
+        - name: wait-for-services
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              until nc -z config-service 8081; do sleep 2; done
+              until nc -z eureka-service 8761; do sleep 2; done
+              until nc -z postgres-vehicles 5432; do sleep 2; done
+      containers:
+        - name: vehicle-service
+          image: __DOCKERHUB_USER__/autofix-vehicle-service:eval2
+          envFrom:
+            - configMapRef: { name: autofix-config }
+          env:
+            - name: PORT_FILE
+              value: /var/run/autofix/port
+            - name: DB_HOST
+              value: postgres-vehicles
+            - name: DB_NAME
+              value: autofix_vehicles
+            - name: DB_USERNAME
+              valueFrom:
+                secretKeyRef: { name: autofix-db-secrets, key: DB_USERNAME }
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: autofix-db-secrets, key: DB_PASSWORD }
+          volumeMounts:
+            - { name: port-info, mountPath: /var/run/autofix }
+        - name: clusterip-proxy
+          image: nginx:1.27-alpine
+          command:
+            - sh
+            - -c
+            - |
+              until [ -s /var/run/autofix/port ]; do sleep 1; done
+              export APP_PORT="$(cat /var/run/autofix/port)"
+              envsubst '$APP_PORT' < /etc/autofix/proxy.conf.template > /etc/nginx/conf.d/default.conf
+              exec nginx -g 'daemon off;'
+          ports:
+            - { name: http, containerPort: 8080 }
+          readinessProbe:
+            tcpSocket: { port: 8080 }
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          volumeMounts:
+            - { name: port-info, mountPath: /var/run/autofix, readOnly: true }
+            - { name: proxy-template, mountPath: /etc/autofix, readOnly: true }
+      volumes:
+        - name: port-info
+          emptyDir: {}
+        - name: proxy-template
+          configMap: { name: microservice-port-proxy }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: repair-list-service
+  namespace: autofix
+spec:
+  type: ClusterIP
+  selector: { app: repair-list-service }
+  ports:
+    - { name: http, port: 8080, targetPort: 8080 }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: repair-list-service
+  namespace: autofix
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: repair-list-service }
+  template:
+    metadata:
+      labels: { app: repair-list-service }
+    spec:
+      initContainers:
+        - name: wait-for-services
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              until nc -z config-service 8081; do sleep 2; done
+              until nc -z eureka-service 8761; do sleep 2; done
+              until nc -z postgres-repair-list 5432; do sleep 2; done
+      containers:
+        - name: repair-list-service
+          image: __DOCKERHUB_USER__/autofix-repair-list-service:eval2
+          envFrom:
+            - configMapRef: { name: autofix-config }
+          env:
+            - name: PORT_FILE
+              value: /var/run/autofix/port
+            - name: DB_HOST
+              value: postgres-repair-list
+            - name: DB_NAME
+              value: autofix_repair_list
+            - name: DB_USERNAME
+              valueFrom:
+                secretKeyRef: { name: autofix-db-secrets, key: DB_USERNAME }
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: autofix-db-secrets, key: DB_PASSWORD }
+          volumeMounts:
+            - { name: port-info, mountPath: /var/run/autofix }
+        - name: clusterip-proxy
+          image: nginx:1.27-alpine
+          command:
+            - sh
+            - -c
+            - |
+              until [ -s /var/run/autofix/port ]; do sleep 1; done
+              export APP_PORT="$(cat /var/run/autofix/port)"
+              envsubst '$APP_PORT' < /etc/autofix/proxy.conf.template > /etc/nginx/conf.d/default.conf
+              exec nginx -g 'daemon off;'
+          ports:
+            - { name: http, containerPort: 8080 }
+          readinessProbe:
+            tcpSocket: { port: 8080 }
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          volumeMounts:
+            - { name: port-info, mountPath: /var/run/autofix, readOnly: true }
+            - { name: proxy-template, mountPath: /etc/autofix, readOnly: true }
+      volumes:
+        - name: port-info
+          emptyDir: {}
+        - name: proxy-template
+          configMap: { name: microservice-port-proxy }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: repair-service
+  namespace: autofix
+spec:
+  type: ClusterIP
+  selector: { app: repair-service }
+  ports:
+    - { name: http, port: 8080, targetPort: 8080 }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: repair-service
+  namespace: autofix
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: repair-service }
+  template:
+    metadata:
+      labels: { app: repair-service }
+    spec:
+      initContainers:
+        - name: wait-for-services
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              until nc -z config-service 8081; do sleep 2; done
+              until nc -z eureka-service 8761; do sleep 2; done
+              until nc -z postgres-repairs 5432; do sleep 2; done
+      containers:
+        - name: repair-service
+          image: __DOCKERHUB_USER__/autofix-repair-service:eval2
+          envFrom:
+            - configMapRef: { name: autofix-config }
+          env:
+            - name: PORT_FILE
+              value: /var/run/autofix/port
+            - name: DB_HOST
+              value: postgres-repairs
+            - name: DB_NAME
+              value: autofix_repairs
+            - name: DB_USERNAME
+              valueFrom:
+                secretKeyRef: { name: autofix-db-secrets, key: DB_USERNAME }
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: autofix-db-secrets, key: DB_PASSWORD }
+          volumeMounts:
+            - { name: port-info, mountPath: /var/run/autofix }
+        - name: clusterip-proxy
+          image: nginx:1.27-alpine
+          command:
+            - sh
+            - -c
+            - |
+              until [ -s /var/run/autofix/port ]; do sleep 1; done
+              export APP_PORT="$(cat /var/run/autofix/port)"
+              envsubst '$APP_PORT' < /etc/autofix/proxy.conf.template > /etc/nginx/conf.d/default.conf
+              exec nginx -g 'daemon off;'
+          ports:
+            - { name: http, containerPort: 8080 }
+          readinessProbe:
+            tcpSocket: { port: 8080 }
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          volumeMounts:
+            - { name: port-info, mountPath: /var/run/autofix, readOnly: true }
+            - { name: proxy-template, mountPath: /etc/autofix, readOnly: true }
+      volumes:
+        - name: port-info
+          emptyDir: {}
+        - name: proxy-template
+          configMap: { name: microservice-port-proxy }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: report-service
+  namespace: autofix
+spec:
+  type: ClusterIP
+  selector: { app: report-service }
+  ports:
+    - { name: http, port: 8080, targetPort: 8080 }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: report-service
+  namespace: autofix
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: report-service }
+  template:
+    metadata:
+      labels: { app: report-service }
+    spec:
+      initContainers:
+        - name: wait-for-services
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              until nc -z config-service 8081; do sleep 2; done
+              until nc -z eureka-service 8761; do sleep 2; done
+      containers:
+        - name: report-service
+          image: __DOCKERHUB_USER__/autofix-report-service:eval2
+          envFrom:
+            - configMapRef: { name: autofix-config }
+          env:
+            - name: PORT_FILE
+              value: /var/run/autofix/port
+          volumeMounts:
+            - { name: port-info, mountPath: /var/run/autofix }
+        - name: clusterip-proxy
+          image: nginx:1.27-alpine
+          command:
+            - sh
+            - -c
+            - |
+              until [ -s /var/run/autofix/port ]; do sleep 1; done
+              export APP_PORT="$(cat /var/run/autofix/port)"
+              envsubst '$APP_PORT' < /etc/autofix/proxy.conf.template > /etc/nginx/conf.d/default.conf
+              exec nginx -g 'daemon off;'
+          ports:
+            - { name: http, containerPort: 8080 }
+          readinessProbe:
+            tcpSocket: { port: 8080 }
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          volumeMounts:
+            - { name: port-info, mountPath: /var/run/autofix, readOnly: true }
+            - { name: proxy-template, mountPath: /etc/autofix, readOnly: true }
+      volumes:
+        - name: port-info
+          emptyDir: {}
+        - name: proxy-template
+          configMap: { name: microservice-port-proxy }
+---

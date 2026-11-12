@@ -1,0 +1,126 @@
+services:
+  postgres-vehicles:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: autofix_vehicles
+      POSTGRES_USER: ${DB_USER:-autofix}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Define DB_PASSWORD en .env}
+    volumes: [vehicles-data:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d autofix_vehicles"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+
+  postgres-repair-list:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: autofix_repair_list
+      POSTGRES_USER: ${DB_USER:-autofix}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Define DB_PASSWORD en .env}
+    volumes: [repair-list-data:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d autofix_repair_list"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+
+  postgres-repairs:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: autofix_repairs
+      POSTGRES_USER: ${DB_USER:-autofix}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Define DB_PASSWORD en .env}
+    volumes: [repairs-data:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d autofix_repairs"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+
+  config-service:
+    build: ./config-service
+    image: autofix/config-service:eval2
+    environment:
+      CONFIG_GIT_URI: https://github.com/feriosvega/autofix-mtisw
+      CONFIG_GIT_LABEL: eval2
+    ports: ["8081:8081"]
+
+  eureka-service:
+    build: ./eureka-service
+    image: autofix/eureka-service:eval2
+    environment:
+      CONFIG_SERVER_URL: http://config-service:8081
+      EUREKA_HOSTNAME: eureka-service
+    depends_on: [config-service]
+    ports: ["8761:8761"]
+
+  gateway-service:
+    build: ./gateway-service
+    image: autofix/gateway-service:eval2
+    environment:
+      CONFIG_SERVER_URL: http://config-service:8081
+      EUREKA_URL: http://eureka-service:8761/eureka
+    depends_on: [eureka-service]
+    ports: ["8080:8080"]
+
+  vehicle-service:
+    build: ./vehicle-service
+    image: autofix/vehicle-service:eval2
+    environment:
+      CONFIG_SERVER_URL: http://config-service:8081
+      EUREKA_URL: http://eureka-service:8761/eureka
+      DB_HOST: postgres-vehicles
+      DB_NAME: autofix_vehicles
+      DB_USERNAME: ${DB_USER:-autofix}
+      DB_PASSWORD: ${DB_PASSWORD:?Define DB_PASSWORD en .env}
+    depends_on:
+      postgres-vehicles: { condition: service_healthy }
+      eureka-service: { condition: service_started }
+
+  repair-list-service:
+    build: ./repair-list-service
+    image: autofix/repair-list-service:eval2
+    environment:
+      CONFIG_SERVER_URL: http://config-service:8081
+      EUREKA_URL: http://eureka-service:8761/eureka
+      DB_HOST: postgres-repair-list
+      DB_NAME: autofix_repair_list
+      DB_USERNAME: ${DB_USER:-autofix}
+      DB_PASSWORD: ${DB_PASSWORD:?Define DB_PASSWORD en .env}
+    depends_on:
+      postgres-repair-list: { condition: service_healthy }
+      eureka-service: { condition: service_started }
+
+  repair-service:
+    build: ./repair-service
+    image: autofix/repair-service:eval2
+    environment:
+      CONFIG_SERVER_URL: http://config-service:8081
+      EUREKA_URL: http://eureka-service:8761/eureka
+      DB_HOST: postgres-repairs
+      DB_NAME: autofix_repairs
+      DB_USERNAME: ${DB_USER:-autofix}
+      DB_PASSWORD: ${DB_PASSWORD:?Define DB_PASSWORD en .env}
+    depends_on:
+      postgres-repairs: { condition: service_healthy }
+      eureka-service: { condition: service_started }
+
+  report-service:
+    build: ./report-service
+    image: autofix/report-service:eval2
+    environment:
+      CONFIG_SERVER_URL: http://config-service:8081
+      EUREKA_URL: http://eureka-service:8761/eureka
+    depends_on: [eureka-service]
+
+  frontend:
+    build: ../autofix-frontend
+    image: autofix/frontend:eval2
+    ports: ["8088:80"]
+    depends_on: [gateway-service]
+
+volumes:
+  vehicles-data:
+  repair-list-data:
+  repairs-data:

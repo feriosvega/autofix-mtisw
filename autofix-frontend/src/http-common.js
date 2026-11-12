@@ -1,26 +1,16 @@
 import axios from "axios";
-import keycloak from "./services/keycloak";
 
-// Vacío => rutas relativas: Nginx enruta /api/ hacia el balanceador del backend
-const backendUrl = import.meta.env.VITE_BACKEND_URL || "";
+// Toda petición del frontend va al API Gateway (único punto de acceso al backend).
+// En Kubernetes el navegador llama directo al NodePort del gateway: http://<IP minikube>:<GATEWAY_NODE_PORT>.
+// Sin puerto configurado (npm run dev / docker compose) se usan rutas relativas /api.
+const runtime = window.__AUTOFIX__ || {};
+const gatewayUrl = runtime.gatewayPort
+  ? `${window.location.protocol}//${window.location.hostname}:${runtime.gatewayPort}`
+  : "";
 
 const api = axios.create({
-  baseURL: backendUrl,
-  headers: {
-    "Content-Type": "application/json",
-  },
+  baseURL: import.meta.env.VITE_BACKEND_URL || gatewayUrl,
+  headers: { "Content-Type": "application/json" },
 });
-
-// Interceptor: antes de cada petición renueva el token si vence en < 30 s y lo adjunta como Bearer
-api.interceptors.request.use(
-  async (config) => {
-    if (keycloak.authenticated) {
-      await keycloak.updateToken(30);
-      config.headers.Authorization = `Bearer ${keycloak.token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
 
 export default api;

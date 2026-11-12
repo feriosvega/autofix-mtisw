@@ -88,12 +88,12 @@ const RepairList = ({ roles }) => {
                 <Button size="small" variant="outlined" startIcon={<VisibilityIcon />} onClick={() => navigate(`/repairs/${r.id}`)}>Detalle</Button>
                 <Button size="small" variant="contained" color="info" startIcon={<EditIcon />} sx={{ ml: 1 }}
                         onClick={() => navigate(`/repairs/edit/${r.id}`)}>Editar</Button>
-                <Button size="small" variant="contained" color="secondary" startIcon={<CalculateIcon />} sx={{ ml: 1 }}
-                        onClick={() => handleCalculate(r.id)}>Calcular</Button>
-                {isAdmin && (
+                {r.pickupDate && <Button size="small" variant="contained" color="secondary" startIcon={<CalculateIcon />} sx={{ ml: 1 }}
+                        onClick={() => handleCalculate(r.id)}>Calcular</Button>}
+                <>
                   <Button size="small" variant="contained" color="error" startIcon={<DeleteIcon />} sx={{ ml: 1 }}
                           onClick={() => handleDelete(r.id)}>Eliminar</Button>
-                )}
+                </>}
               </TableCell>
             </TableRow>
           ))}

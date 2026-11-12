@@ -1,0 +1,156 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-vehicles
+  namespace: autofix
+spec:
+  selector: { app: postgres-vehicles }
+  ports:
+    - { name: postgres, port: 5432, targetPort: 5432 }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres-vehicles
+  namespace: autofix
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: postgres-vehicles }
+  template:
+    metadata:
+      labels: { app: postgres-vehicles }
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - { name: postgres, containerPort: 5432 }
+          envFrom:
+            - secretRef: { name: autofix-db-secrets }
+          env:
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+            - name: POSTGRES_DB
+              value: autofix_vehicles
+          volumeMounts:
+            - { name: data, mountPath: /var/lib/postgresql/data }
+      volumes:
+        - name: data
+          persistentVolumeClaim: { claimName: postgres-vehicles-data }
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-vehicles-data
+  namespace: autofix
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-repair-list
+  namespace: autofix
+spec:
+  selector: { app: postgres-repair-list }
+  ports:
+    - { name: postgres, port: 5432, targetPort: 5432 }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres-repair-list
+  namespace: autofix
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: postgres-repair-list }
+  template:
+    metadata:
+      labels: { app: postgres-repair-list }
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - { name: postgres, containerPort: 5432 }
+          envFrom:
+            - secretRef: { name: autofix-db-secrets }
+          env:
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+            - name: POSTGRES_DB
+              value: autofix_repair_list
+          volumeMounts:
+            - { name: data, mountPath: /var/lib/postgresql/data }
+      volumes:
+        - name: data
+          persistentVolumeClaim: { claimName: postgres-repair-list-data }
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-repair-list-data
+  namespace: autofix
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-repairs
+  namespace: autofix
+spec:
+  selector: { app: postgres-repairs }
+  ports:
+    - { name: postgres, port: 5432, targetPort: 5432 }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres-repairs
+  namespace: autofix
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: postgres-repairs }
+  template:
+    metadata:
+      labels: { app: postgres-repairs }
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - { name: postgres, containerPort: 5432 }
+          envFrom:
+            - secretRef: { name: autofix-db-secrets }
+          env:
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+            - name: POSTGRES_DB
+              value: autofix_repairs
+          volumeMounts:
+            - { name: data, mountPath: /var/lib/postgresql/data }
+      volumes:
+        - name: data
+          persistentVolumeClaim: { claimName: postgres-repairs-data }
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-repairs-data
+  namespace: autofix
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 1Gi
+---

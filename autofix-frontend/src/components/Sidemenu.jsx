@@ -9,11 +9,9 @@ import ListItemText from "@mui/material/ListItemText";
 import HomeIcon from "@mui/icons-material/Home";
 import DirectionsCarIcon from "@mui/icons-material/DirectionsCar";
 import BuildIcon from "@mui/icons-material/Build";
-import CardGiftcardIcon from "@mui/icons-material/CardGiftcard";
 import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
 import TableChartIcon from "@mui/icons-material/TableChart";
-import TimerIcon from "@mui/icons-material/Timer";
-import EvStationIcon from "@mui/icons-material/EvStation";
+import CardGiftcardIcon from "@mui/icons-material/CardGiftcard";
 import { useNavigate } from "react-router-dom";
 
 export default function Sidemenu({ open, toggleDrawer, roles }) {
@@ -26,13 +24,13 @@ export default function Sidemenu({ open, toggleDrawer, roles }) {
     { label: "Inicio", path: "/home", icon: <HomeIcon /> },
     { section: "Gestión" },
     { label: "Vehículos (HU1)", path: "/vehicles/list", icon: <DirectionsCarIcon /> },
-    { label: "Reparaciones (HU2/HU3)", path: "/repairs/list", icon: <BuildIcon /> },
-    { label: "Bonos TopCar", path: "/bonuses", icon: <CardGiftcardIcon />, admin: true },
+    { label: "Catálogo de reparaciones (HU2)", path: "/repair-types", icon: <BuildIcon /> },
+    { label: "Registrar reparaciones (HU3)", path: "/repairs/list", icon: <BuildIcon /> },
+    { label: "Bonos TopCar", path: "/bonuses", icon: <CardGiftcardIcon /> },
+    { label: "Historial de vehículos (HU4)", path: "/repairs/history", icon: <DirectionsCarIcon /> },
     { section: "Reportes" },
-    { label: "R1: Detalle de costos", path: "/reports/r1", icon: <ReceiptLongIcon /> },
-    { label: "R2: Reparación x tipo vehículo", path: "/reports/r2", icon: <TableChartIcon />, admin: true },
-    { label: "R3: Tiempos de reparación", path: "/reports/r3", icon: <TimerIcon />, admin: true },
-    { label: "R4: Reparación x tipo motor", path: "/reports/r4", icon: <EvStationIcon />, admin: true },
+    { label: "R1: Reparaciones por vehículo", path: "/reports/r1", icon: <ReceiptLongIcon /> },
+    { label: "R2: Comparativo mensual", path: "/reports/r2", icon: <TableChartIcon /> },
   ];
 
   return (

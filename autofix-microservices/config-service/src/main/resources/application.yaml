@@ -9,6 +9,6 @@ spring:
         git:
           # Repositorio público con los archivos de configuración de cada microservicio
           uri: ${CONFIG_GIT_URI:https://github.com/feriosvega/autofix-mtisw}
-          default-label: ${CONFIG_GIT_LABEL:main}
+          default-label: ${CONFIG_GIT_LABEL:eval2}
           search-paths: ${CONFIG_GIT_PATH:autofix-microservices/config-data}
           clone-on-start: true
