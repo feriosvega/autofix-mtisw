@@ -4,11 +4,15 @@ server:
 eureka:
   client:
     fetch-registry: true
+    # Refresca el registro de Eureka cada 5 s (por defecto 30 s): recién desplegado, cada servicio
+    # encuentra pronto a los demás
+    registry-fetch-interval-seconds: 5
     register-with-eureka: true
     service-url:
       defaultZone: ${EUREKA_URL:http://localhost:8761/eureka}
   instance:
     prefer-ip-address: true
+    lease-renewal-interval-in-seconds: 10
     instance-id: ${spring.application.name}:${random.value}
 spring:
   jackson:
