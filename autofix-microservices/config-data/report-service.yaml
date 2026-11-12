@@ -1,0 +1,15 @@
+# Puerto asignado por el sistema (server.port=0). Los demás lo encuentran vía Eureka.
+server:
+  port: 0
+eureka:
+  client:
+    fetch-registry: true
+    register-with-eureka: true
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka}
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${random.value}
+spring:
+  jackson:
+    time-zone: America/Santiago
