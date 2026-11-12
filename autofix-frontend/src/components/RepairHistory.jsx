@@ -1,56 +1,75 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import repairService from "../services/repair.service";
 import { errorMessage, money, time } from "../utils/format";
 import { LABELS } from "../utils/constants";
 import Paper from "@mui/material/Paper";
-import Accordion from "@mui/material/Accordion";
-import AccordionSummary from "@mui/material/AccordionSummary";
-import AccordionDetails from "@mui/material/AccordionDetails";
 import Typography from "@mui/material/Typography";
-import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import TableContainer from "@mui/material/TableContainer";
 import Table from "@mui/material/Table";
 import TableHead from "@mui/material/TableHead";
 import TableBody from "@mui/material/TableBody";
 import TableRow from "@mui/material/TableRow";
 import TableCell from "@mui/material/TableCell";
 import Alert from "@mui/material/Alert";
-import Grid from "@mui/material/Grid";
 
-const COSTS = [
-  ["repairsAmount", "Suma de reparaciones"], ["mileageSurcharge", "Recargo por kilometraje"],
-  ["ageSurcharge", "Recargo por antigüedad"], ["lateSurcharge", "Recargo por retraso"],
-  ["repairsCountDiscount", "Descuento por reparaciones previas"], ["dayDiscount", "Descuento por día de atención"], ["bonusDiscount", "Descuento por bono"],
-  ["iva", "IVA"], ["totalAmount", "Costo total"],
+// HU4: listado de TODOS los vehículos con TODOS los campos del historial de reparaciones,
+// con la misma estructura de columnas del enunciado. Una fila por ingreso al taller.
+const surcharges = (r) => r.mileageSurcharge + r.ageSurcharge + r.lateSurcharge;
+const discounts = (r) => r.repairsCountDiscount + r.dayDiscount + r.bonusDiscount;
+const amount = (r, value) => (r.pickupDate ? money(value) : "Al retiro");
+
+const COLUMNS = [
+  ["Patente Vehículo", (v) => v.plate],
+  ["Marca Vehículo", (v) => v.brand],
+  ["Modelo Vehículo", (v) => v.model],
+  ["Tipo Vehículo", (v) => LABELS[v.vehicleType]],
+  ["Año Fabricación", (v) => v.manufactureYear],
+  ["Tipo Motor", (v) => LABELS[v.engineType]],
+  ["Fecha Ingreso Taller", (v, r) => r?.entryDate],
+  ["Hora Ingreso Taller", (v, r) => time(r?.entryTime)],
+  ["Monto Total Reparaciones", (v, r) => r && money(r.repairsAmount), true],
+  ["Monto Recargos", (v, r) => r && amount(r, surcharges(r)), true],
+  ["Monto Dctos", (v, r) => r && amount(r, discounts(r)), true],
+  ["SUB Total", (v, r) => r && amount(r, r.subtotal), true],
+  ["Monto IVA", (v, r) => r && amount(r, r.iva), true],
+  ["Costo Total", (v, r) => r && amount(r, r.totalAmount), true],
+  ["Fecha Salida Taller", (v, r) => r?.exitDate],
+  ["Hora Salida Taller", (v, r) => time(r?.exitTime)],
+  ["Fecha Retiro Cliente", (v, r) => r?.pickupDate],
+  ["Hora Retiro Cliente", (v, r) => time(r?.pickupTime)],
 ];
 
 export default function RepairHistory() {
   const [rows, setRows] = useState([]);
   const [error, setError] = useState("");
+  const navigate = useNavigate();
   useEffect(() => { repairService.getHistory().then((r) => setRows(r.data)).catch((e) => setError(errorMessage(e))); }, []);
+
+  // Vehículos sin reparaciones también aparecen (con los campos del historial vacíos)
+  const lines = rows.flatMap(({ vehicle, repairs }) =>
+    repairs.length === 0 ? [{ vehicle, repair: null }] : repairs.map((repair) => ({ vehicle, repair })));
+
   return <Paper sx={{ p: 2 }}>
-    <Typography variant="h5" gutterBottom>Historial completo de vehículos (HU4)</Typography>
+    <Typography variant="h5" gutterBottom>Historial de reparaciones de todos los vehículos (HU4)</Typography>
+    <Typography variant="body2" color="text.secondary" gutterBottom>
+      Los montos de recargos, descuentos, IVA y costo total se calculan cuando el cliente retira el vehículo. Clic en una fila para ver el detalle.
+    </Typography>
     {error && <Alert severity="error">{error}</Alert>}
-    {rows.map(({ vehicle, repairs }) => <Accordion key={vehicle.id}>
-      <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-        <Typography><b>{vehicle.plate}</b> · {vehicle.brand} {vehicle.model} · {LABELS[vehicle.vehicleType]} · {LABELS[vehicle.engineType]} · Año {vehicle.manufactureYear} · {vehicle.seats} asientos</Typography>
-      </AccordionSummary>
-      <AccordionDetails>
-        {repairs.length === 0 ? <Typography color="text.secondary">Sin reparaciones registradas.</Typography> : repairs.map((repair) => <Paper key={repair.id} variant="outlined" sx={{ p: 1.5, mb: 1.5 }}>
-          <Typography variant="subtitle1">Ingreso: {repair.entryDate} {time(repair.entryTime)} · Kilometraje: {Number(repair.mileage).toLocaleString("es-CL")} km</Typography>
-          <Typography variant="body2">Salida listo: {repair.exitDate ? repair.exitDate + " " + time(repair.exitTime) : "Pendiente"} · Retiro: {repair.pickupDate ? repair.pickupDate + " " + time(repair.pickupTime) : "Pendiente"}</Typography>
-          <Table size="small"><TableHead><TableRow>{["Tipo de reparación", "Fecha", "Hora", "Monto"].map((h) => <TableCell key={h}>{h}</TableCell>)}</TableRow></TableHead>
-            <TableBody>{repair.details.map((detail) => <TableRow key={detail.id}>
-              <TableCell>{detail.repairType}. {detail.repairName}</TableCell><TableCell>{detail.repairDate}</TableCell><TableCell>{time(detail.repairTime)}</TableCell><TableCell>{money(detail.price)}</TableCell>
-            </TableRow>)}</TableBody>
-          </Table>
-          <Grid container spacing={1} sx={{ mt: 1 }}>
-            {COSTS.map(([field, label]) => <Grid item xs={6} md={3} key={field}>
-              <Typography variant="caption" display="block" color="text.secondary">{label}</Typography>
-              <Typography fontWeight={field === "totalAmount" ? "bold" : "normal"}>{money(repair[field])}</Typography>
-            </Grid>)}
-          </Grid>
-        </Paper>)}
-      </AccordionDetails>
-    </Accordion>)}
+    <TableContainer>
+      <Table size="small">
+        <TableHead><TableRow>
+          {COLUMNS.map(([header, , right]) => <TableCell key={header} align={right ? "right" : "left"} sx={{ fontWeight: "bold" }}>{header}</TableCell>)}
+        </TableRow></TableHead>
+        <TableBody>
+          {lines.map(({ vehicle, repair }) => (
+            <TableRow key={vehicle.id + "-" + (repair?.id ?? "none")} hover sx={{ cursor: repair ? "pointer" : "default" }}
+              onClick={() => repair && navigate("/repairs/" + repair.id)}>
+              {COLUMNS.map(([header, value, right]) => <TableCell key={header} align={right ? "right" : "left"} sx={{ whiteSpace: "nowrap" }}>{value(vehicle, repair) ?? ""}</TableCell>)}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </TableContainer>
   </Paper>;
 }

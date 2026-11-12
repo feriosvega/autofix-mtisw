@@ -7,6 +7,7 @@ DIR="$(cd "$(dirname "$0")" && pwd)"
 for manifest in 00-namespace.yaml 01-secrets.yaml 01-configmap.yaml 02-databases.yaml 03-platform.yaml 04-microservices.yaml 05-frontend.yaml; do
   sed "s/__DOCKERHUB_USER__/$DOCKERHUB_USER/g" "$DIR/$manifest" | kubectl apply -f -
 done
+IP="$(minikube -p "${MINIKUBE_PROFILE:-minikube}" ip 2>/dev/null | tail -1)"
 echo
-echo "Frontend:    http://$(minikube ip 2>/dev/null || echo '<minikube ip>'):30081"
-echo "API Gateway: http://$(minikube ip 2>/dev/null || echo '<minikube ip>'):30080"
+echo "Frontend:    http://${IP:-<minikube ip>}:30081"
+echo "API Gateway: http://${IP:-<minikube ip>}:30080"

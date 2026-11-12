@@ -19,22 +19,33 @@ docker login
 Las imágenes se etiquetan como `autofix-<servicio>:eval2`. El script construye imágenes independientes
 desde cada proyecto Spring Boot y desde el frontend.
 
-## Despliegue en Kubernetes
+## Despliegue en Kubernetes (minikube en VirtualBox)
 
-Minikube debe correr dentro de la VM indicada por el enunciado. Desde esa VM, crea la contraseña de
-PostgreSQL como variable de entorno y aplica los manifiestos:
+El enunciado exige minikube dentro de una máquina virtual. Con VirtualBox instalado:
 
 ```bash
-export DOCKERHUB_USER=tu_usuario
-export DB_USER=autofix
-export DB_PASSWORD='una-clave-segura'
-./autofix-microservices/k8s/deploy.sh
+minikube start --driver=virtualbox --cpus=4 --memory=6144
+minikube ip                      # IP de la VM: con ella se abre la app en el navegador
+DOCKERHUB_USER=tu_usuario ./autofix-microservices/k8s/deploy.sh
 kubectl get pods,services -n autofix
 ```
 
-Abre la aplicación desde el equipo anfitrión usando la IP alcanzable de la VM y el NodePort del frontend,
-por ejemplo `http://<ip-de-la-vm>:30081`. El Gateway queda en `http://<ip-de-la-vm>:30080`.
-No se usa `port-forward`. Las bases de datos guardan datos en PVC independientes.
+`deploy.sh` aplica, en orden: namespace, Secret (`01-secrets.yaml`, credenciales de PostgreSQL en
+base64), ConfigMap (`01-configmap.yaml`), las 3 bases PostgreSQL con su PVC, Config Server + Eureka +
+Gateway y los microservicios M1–M4 y el frontend. Los pods de M1–M4 tienen 2 contenedores: la app
+(puerto dinámico) y un nginx que expone el puerto 8080 del Service ClusterIP.
+
+- Frontend: `http://<minikube ip>:30081`
+- API Gateway (único NodePort del backend): `http://<minikube ip>:30080`
+
+El navegador llama directamente al Gateway por su NodePort (el frontend lee el puerto desde el
+ConfigMap, clave `GATEWAY_NODE_PORT`). No se usa `port-forward`.
+
+Para mostrar el registro en Eureka (puertos asignados por el sistema):
+
+```bash
+kubectl -n autofix exec deploy/eureka-service -- wget -qO- --header 'Accept: application/json' http://localhost:8761/eureka/apps
+```
 
 Los manifiestos usan el Config Server de la rama `eval2`; publica esa rama antes de iniciar los Pods para
 que Config Server pueda clonar `autofix-microservices/config-data` desde GitHub. El Config Server,
